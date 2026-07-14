@@ -1,21 +1,21 @@
-# Raw Data
+# 生データ
 
-BRFSS 2024 data files. Download from CDC:
+BRFSS 2024データファイル。以下からダウンロード:
 https://www.cdc.gov/brfss/annual_data/annual_2024.html
 
-## Required files
+## 必要なファイル
 
-| File | Description |
-|------|-------------|
-| LLCP2024.XPT | Main dataset (core variables, ~1.0 GB) |
-| LLCP24V1.XPT | Optional module Version 1 (~149 MB) |
-| LLCP24V2.XPT | Optional module Version 2 (~140 MB) |
+| ファイル | 説明 |
+|----------|------|
+| LLCP2024.XPT | メインデータセット（コア変数、約1.0 GB） |
+| LLCP24V1.XPT | オプショナルモジュール Version 1（約149 MB） |
+| LLCP24V2.XPT | オプショナルモジュール Version 2（約140 MB） |
 
-## Reference documents (included in repo)
+## 参照ドキュメント（リポジトリに含む）
 
-| File | Description |
-|------|-------------|
-| 2024-calculated-variables.pdf | CDC calculated variable definitions |
-| 2024-Child-Weighting-Calculated-Variables.pdf | Child weighting documentation |
-| Complex-Sampling-Weights.pdf | Survey weight methodology |
-| USCODE24_LLCP_082125.HTML | Codebook |
+| ファイル | 説明 |
+|----------|------|
+| 2024-calculated-variables.pdf | CDC算出変数の定義 |
+| 2024-Child-Weighting-Calculated-Variables.pdf | 子供用ウェイト算出変数 |
+| Complex-Sampling-Weights.pdf | サーベイウェイトの方法論 |
+| USCODE24_LLCP_082125.HTML | コードブック |

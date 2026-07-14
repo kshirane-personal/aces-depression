@@ -1,36 +1,36 @@
-# ACEs, Healthcare Engagement, and Depression: A BRFSS 2024 Analysis
+# ACEs・予防医療行動・うつ病の交互作用研究（BRFSS 2024）
 
-Investigating the interaction effects between Adverse Childhood Experiences (ACEs) and preventive healthcare behaviors on depression risk, using CDC BRFSS 2024 data.
+逆境的小児期体験（ACEs）と予防医療行動（ヘルスケア・エンゲージメント）の交互作用がうつ病リスクに及ぼす影響を、CDC BRFSS 2024データを用いて検証する。
 
-## Research Overview
+## 研究概要
 
-- **Primary objective**: Test whether preventive healthcare engagement (routine checkups, cancer screenings, dental visits, vaccinations) buffers the adverse mental health effects of ACEs on depression risk
-- **Secondary objective**: Explore non-linear interaction patterns using gradient boosting (XGBoost) and SHAP analysis
-- **Data**: BRFSS 2024 (N≈59,900 ACE module respondents across 13 states/territories)
+- **主目的**: 予防医療行動（健康診断・がん検診・歯科受診・予防接種）がACEsによるうつ病リスクの緩衝因子として機能するかを検証
+- **副次目的**: 勾配ブースティング（XGBoost）とSHAP解析による非線形交互作用パターンの探索
+- **データ**: BRFSS 2024（ACEモジュール実施13州/地域、約59,900件）
 
-## Methods
+## 分析手法
 
-- **Confirmatory**: Logistic regression with interaction terms, RERI (additive interaction), GAM
-- **Exploratory**: XGBoost + SHAP interaction values
-- **Causal framework**: DAG-based confounder adjustment
+- **確認的解析**: 交互作用項付きロジスティック回帰、RERI（加法的交互作用）、GAM
+- **探索的解析**: XGBoost + SHAP交互作用値
+- **因果推論枠組み**: DAGに基づく交絡調整
 
-## Project Structure
+## プロジェクト構成
 
 ```
 ├── data/
-│   ├── raw/          # BRFSS XPT files (not tracked - see data/raw/README.md)
-│   ├── processed/    # Analysis-ready datasets
-│   └── interim/      # Intermediate files
-├── docs/             # Research plan, references
-├── notebooks/        # Exploratory analysis
-├── src/              # Reusable analysis code
+│   ├── raw/          # BRFSS生データ（Git管理外 - data/raw/README.md参照）
+│   ├── processed/    # 分析用データセット
+│   └── interim/      # 中間ファイル
+├── docs/             # 研究計画書・参考文献
+├── notebooks/        # 探索的分析
+├── src/              # 再利用可能な分析コード
 ├── outputs/
-│   ├── figures/      # Publication-ready figures
-│   └── tables/       # Result tables
-└── requirements.txt  # Python dependencies
+│   ├── figures/      # 図表
+│   └── tables/       # 結果テーブル
+└── requirements.txt  # Python依存パッケージ
 ```
 
-## Setup
+## セットアップ
 
 ```bash
 python3 -m venv .venv
@@ -38,8 +38,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Download BRFSS 2024 data from [CDC](https://www.cdc.gov/brfss/annual_data/annual_2024.html) and place XPT files in `data/raw/`.
+BRFSS 2024データを[CDC](https://www.cdc.gov/brfss/annual_data/annual_2024.html)からダウンロードし、XPTファイルを`data/raw/`に配置する。
 
-## Data Source
+## データソース
 
-CDC Behavioral Risk Factor Surveillance System (BRFSS) 2024. Public-use, de-identified data.
+CDC Behavioral Risk Factor Surveillance System（BRFSS）2024年度。公開済み匿名化データ。
