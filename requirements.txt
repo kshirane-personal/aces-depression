@@ -1,0 +1,31 @@
+# Data processing
+pandas>=2.2
+numpy>=1.26
+pyreadstat>=1.2
+
+# Statistics
+scipy>=1.13
+statsmodels>=0.14
+
+# Machine learning
+scikit-learn>=1.4
+xgboost>=2.0
+shap>=0.45
+optuna>=3.6
+
+# Visualization
+matplotlib>=3.8
+seaborn>=0.13
+
+# Survey analysis
+samplics>=0.4
+
+# Multiple imputation
+miceforest>=5.7
+
+# Jupyter
+jupyter>=1.0
+ipykernel>=6.0
+
+# Utilities
+tqdm>=4.66

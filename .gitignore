@@ -1,0 +1,46 @@
+# Raw data (large XPT files - download from CDC)
+data/raw/*.XPT
+data/raw/*.XPT *
+data/raw/*.xpt
+
+# Processed/interim data (contents excluded, dirs kept via .gitkeep)
+data/processed/*
+!data/processed/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Outputs (regenerable, dirs kept via .gitkeep)
+outputs/figures/*
+!outputs/figures/.gitkeep
+outputs/tables/*
+!outputs/tables/.gitkeep
+
+# Secrets
+.env
+*.key
+*_confidential*
+*_internal*
