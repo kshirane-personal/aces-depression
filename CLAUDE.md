@@ -76,6 +76,13 @@ pip install -r requirements.txt
 
 
 
+## タスク管理の棲み分け
+
+- **`docs/analysis_workflow.md`** = フェーズの全体地図。方針レベルの判断（仮説ベース項目、更新トリガー、完了条件）を管理する。情報の正はここ
+- **GitHub Issues** = 具体的なネクストアクションや小さな検証タスク。背景の説明は workflow.md へのリンク（例: `docs/analysis_workflow.md のフェーズ1-3参照`）で済ませ、Issue 側に方針の文言をコピペしない
+
+
+
 ## Git管理のルール
 
 - `data/raw/` のXPTファイルはGit管理外（`.gitignore` 済み）

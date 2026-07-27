@@ -40,6 +40,11 @@ pip install -r requirements.txt
 
 BRFSS 2024データを[CDC](https://www.cdc.gov/brfss/annual_data/annual_2024.html)からダウンロードし、XPTファイルを`data/raw/`に配置する。
 
+## プロジェクト管理
+
+- **解析の全体設計・方針**: [`docs/analysis_workflow.md`](docs/analysis_workflow.md) — フェーズ構成、判断ポイント、完了条件を記載
+- **個別のタスク・検証項目**: [GitHub Issues](../../issues) — 具体的なアクションを起票し、背景は workflow.md へリンク
+
 ## データソース
 
 CDC Behavioral Risk Factor Surveillance System（BRFSS）2024年度。公開済み匿名化データ。
