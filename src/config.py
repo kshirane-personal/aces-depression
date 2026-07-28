@@ -42,6 +42,10 @@ OUTCOME_VARS = [OUTCOME_PRIMARY, OUTCOME_SECONDARY]
 # ADDEPEV3のリコーディング: 1=はい → 1, 2=いいえ → 0, 7/9=除外
 ADDEPEV3_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
 
+# MENTHLTH / PHYSHLTH の特殊値（88=0日, 77=わからない, 99=回答拒否）
+MENTHLTH_RECODE = {88.0: 0, 77.0: None, 99.0: None}
+PHYSHLTH_RECODE = {88.0: 0, 77.0: None, 99.0: None}
+
 # === ACEs変数（11の質問項目） ===
 # 家庭内の機能不全（はい/いいえ形式: 1=はい, 2=いいえ）
 ACE_HOUSEHOLD = {
@@ -52,42 +56,42 @@ ACE_HOUSEHOLD = {
     "ACEDIVRC": "親の離婚・別居",
 }
 
-# 虐待（頻度形式: 1=1回, 2=2回以上, 3=なし）
+# 虐待・DV（頻度形式: 1=Never, 2=Once, 3=More than once）
 ACE_ABUSE_FREQ = {
-    "ACEPUNCH": "身体的虐待（殴る・蹴る等の暴力を受けた頻度）",
-    "ACEHURT1": "身体的虐待（痣・怪我を負わされた頻度）",
+    "ACEPUNCH": "DV目撃（親や同居の大人同士が互いに暴力をふるった頻度）",
+    "ACEHURT1": "身体的虐待（親や同居の大人に殴る・蹴る等で身体的に傷つけられた頻度）",
     "ACESWEAR": "精神的虐待（罵倒・侮辱を受けた頻度）",
     "ACETOUCH": "性的虐待（性的接触を受けた頻度）",
     "ACETTHEM": "性的虐待（性的接触を試みられた頻度）",
     "ACEHVSEX": "性的虐待（性行為を強制された頻度）",
 }
 
-# ネグレクト（頻度形式: 1=いつも〜5=全くない）
+# ネグレクト（頻度形式: 1=Never〜5=All of the time、逆転項目）
 ACE_NEGLECT = {
-    "ACEADSAF": "情緒的安全（安全・守られていると感じた頻度）",
-    "ACEADNED": "基本的ニーズ（基本的な必要を満たそうとしてくれた頻度）",
+    "ACEADSAF": "情緒的安全（安全・守られていると感じた頻度、1=全くない〜5=いつも）",
+    "ACEADNED": "基本的ニーズ（基本的な必要を満たそうとしてくれた頻度、1=全くない〜5=いつも）",
 }
 
 ACE_ALL_VARS = list(ACE_HOUSEHOLD.keys()) + list(ACE_ABUSE_FREQ.keys()) + list(ACE_NEGLECT.keys())
 
 # ACEスコア算出のための二値化ルール
-# 家庭内の機能不全: 1(はい)→1, 2(いいえ)→0
-ACE_HOUSEHOLD_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
+# 家庭内の機能不全: 1(はい)→1, 2(いいえ)→0, 8(該当なし/ACEDIVRC用)→欠損
+ACE_HOUSEHOLD_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 8.0: None, 9.0: None}
 
-# 虐待（頻度）: 1(1回)または2(2回以上)→1, 3(なし)→0
-ACE_ABUSE_FREQ_RECODE = {1.0: 1, 2.0: 1, 3.0: 0, 7.0: None, 9.0: None}
+# 虐待（頻度）: 1(Never/なし)→0, 2(Once/1回)→1, 3(More than once/2回以上)→1
+ACE_ABUSE_FREQ_RECODE = {1.0: 0, 2.0: 1, 3.0: 1, 7.0: None, 9.0: None}
 
-# ネグレクト（逆転項目）: 1(いつも)/2(ほとんど)→0（保護あり）, 3/4/5→1（ネグレクト）
-ACE_NEGLECT_RECODE = {1.0: 0, 2.0: 0, 3.0: 1, 4.0: 1, 5.0: 1, 7.0: None, 9.0: None}
+# ネグレクト（逆転項目）: 1(Never)/2(A little)/3(Some)→1（ネグレクト）, 4(Most)/5(All)→0（保護あり）
+ACE_NEGLECT_RECODE = {1.0: 1, 2.0: 1, 3.0: 1, 4.0: 0, 5.0: 0, 7.0: None, 9.0: None}
 
 # ACEスコアに使用する8カテゴリ（11項目を8カテゴリに集約）
 ACE_CATEGORIES = {
     "ace_emotional_abuse": ["ACESWEAR"],          # 精神的虐待
-    "ace_physical_abuse": ["ACEPUNCH", "ACEHURT1"],  # 身体的虐待（2項目のいずれか）
+    "ace_physical_abuse": ["ACEHURT1"],  # 身体的虐待（子どもが直接受けた暴力）
     "ace_sexual_abuse": ["ACETOUCH", "ACETTHEM", "ACEHVSEX"],  # 性的虐待（3項目のいずれか）
     "ace_household_mental": ["ACEDEPRS"],          # 家庭内の精神疾患
     "ace_household_substance": ["ACEDRINK", "ACEDRUGS"],  # 家庭内の物質依存（いずれか）
-    "ace_household_dv": ["ACEPUNCH"],              # DV目撃（身体的虐待と共有）
+    "ace_household_dv": ["ACEPUNCH"],              # DV目撃（親同士の暴力）
     "ace_parental_separation": ["ACEDIVRC"],       # 親の離婚・別居
     "ace_household_incarceration": ["ACEPRISN"],   # 家族の収監
 }
@@ -111,6 +115,19 @@ LASTDEN4_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: None, 8.0: 0, 9.0: None}
 FLUSHOT7_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
 HIVTST7_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
 HADMAM_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
+
+# 予防医療行動リコーディングの一括定義（変数名→リコードマップ）
+PREVENTIVE_CARE_RECODES = {
+    "CHECKUP1": CHECKUP1_RECODE,
+    "LASTDEN4": LASTDEN4_RECODE,
+    "FLUSHOT7": FLUSHOT7_RECODE,
+    "HIVTST7": HIVTST7_RECODE,
+    "HADMAM": HADMAM_RECODE,
+    "CRVCLPAP": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
+    "CRVCLHPV": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
+    "STOOLDN2": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
+    "PSATEST1": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
+}
 
 # === 人口統計・SES変数 ===
 DEMOGRAPHIC_VARS = {
@@ -170,6 +187,30 @@ ALL_RESEARCH_VARS = (
     + list(SDOH_VARS.keys())
     + SURVEY_VARS
 )
+
+# === 共変量の欠損値コード（リコーディング対象外変数の「わからない/回答拒否」） ===
+COVARIATE_MISSING_CODES = {
+    "_RACE": [9.0],
+    "MARITAL": [9.0],
+    "_EDUCAG": [9.0],
+    "_INCOMG1": [9.0],
+    "EMPLOY1": [9.0],
+    "_HLTHPL2": [9.0],
+    "MEDCOST1": [7.0, 9.0],
+    "PERSDOC3": [7.0, 9.0],
+    "_SMOKER3": [9.0],
+    "_RFBING6": [9.0],
+    "_TOTINDA": [9.0],
+    "EXERANY2": [7.0, 9.0],
+    "GENHLTH": [7.0, 9.0],
+    "DIABETE4": [7.0, 9.0],
+    "CVDINFR4": [7.0, 9.0],
+    "CVDSTRK3": [7.0, 9.0],
+    "_RFHLTH": [9.0],
+    "LSATISFY": [7.0, 9.0],
+    "SDLONELY": [7.0, 9.0],
+    "SDHEMPLY": [7.0, 9.0],
+}
 
 # === 欠損値処理の閾値 ===
 MISSING_THRESHOLD_EXCLUDE = 0.30   # 30%以上欠損 → 変数除外

@@ -18,7 +18,8 @@ def main():
 
     # ステップ2: データ前処理
     print("\n[Step 2] データ前処理")
-    print("  → 未実装")
+    from src.preprocess import run_preprocessing
+    run_preprocessing()
 
     # ステップ3: 記述統計
     print("\n[Step 3] 記述統計")

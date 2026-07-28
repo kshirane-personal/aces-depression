@@ -27,5 +27,8 @@ miceforest>=5.7
 jupyter>=1.0
 ipykernel>=6.0
 
+# Parquet I/O
+pyarrow>=15.0
+
 # Utilities
 tqdm>=4.66
