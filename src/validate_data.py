@@ -11,21 +11,31 @@ from src.config import (
     ALL_RESEARCH_VARS,
     COVARIATE_VARS, COVARIATE_MISSING_CODES,
     COVARIATES_NO_MISSING_CODE, COVARIATES_SPECIAL_HANDLING,
+    OUTCOME_VARS, OUTCOME_MISSING_CODES, OUTCOMES_RECODED,
 )
 from src.data_loader import load_research_subset
 from src.preprocess import recode_all
 
 
-def check_covariate_coverage() -> None:
-    """共変量の欠損値処理が漏れなく定義されているか確認
+def check_variable_coverage() -> None:
+    """共変量とアウトカムの欠損値処理が漏れなく定義されているか確認
 
-    共変量は「欠損値コードあり」「欠損値コードなし」「個別処理」のいずれかに
+    各変数は「欠損値コードあり」「欠損値コードなし」「個別処理」のいずれかに
     必ず分類されている必要がある。未分類の変数は登録漏れの可能性が高い。
     データ読み込み前に実行できるため最初にチェックする。
     """
     print("=" * 60)
-    print("0. 共変量の欠損値処理カバレッジ")
+    print("0. 欠損値処理のカバレッジ")
     print("=" * 60)
+
+    out_classified = set(OUTCOME_MISSING_CODES) | set(OUTCOMES_RECODED)
+    out_unclassified = [v for v in OUTCOME_VARS if v not in out_classified]
+    print(f"  アウトカム: {len(OUTCOME_VARS)}変数")
+    if out_unclassified:
+        print(f"  [警告] 未分類のアウトカム（欠損値コードの登録漏れの可能性）: {out_unclassified}")
+    else:
+        print("  → 全てのアウトカムが分類済み")
+    print()
     classified = (
         set(COVARIATE_MISSING_CODES)
         | set(COVARIATES_NO_MISSING_CODE)
@@ -171,7 +181,7 @@ def check_survey_weights(df: pd.DataFrame) -> None:
 
 def run_all_checks() -> None:
     """全検証を実行"""
-    check_covariate_coverage()
+    check_variable_coverage()
 
     print("\nデータ読み込み中...")
     df = load_research_subset()

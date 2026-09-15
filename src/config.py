@@ -60,7 +60,11 @@ ACE_STATES_V2 = {4: "AZ", 40: "OK"}
 OUTCOME_PRIMARY = "ADDEPEV3"     # うつ病性障害の診断歴
 OUTCOME_SECONDARY = "MENTHLTH"   # 過去30日間のメンタルヘルス不良日数
 
-OUTCOME_VARS = [OUTCOME_PRIMARY, OUTCOME_SECONDARY]
+# 頑健性確認用。研究計画では PHQ-8 を想定していたが BRFSS 2024 には存在しないため、
+# 現在の症状を捉える指標としてこれを使う（MENTHLTH から CDC が算出した3区分）
+OUTCOME_ROBUSTNESS = "_MENT14D"   # 1=0日, 2=1-13日, 3=14日以上
+
+OUTCOME_VARS = [OUTCOME_PRIMARY, OUTCOME_SECONDARY, OUTCOME_ROBUSTNESS]
 
 # ADDEPEV3のリコーディング: 1=はい → 1, 2=いいえ → 0, 7/9=除外
 ADDEPEV3_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan}
@@ -68,6 +72,18 @@ ADDEPEV3_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan}
 # MENTHLTH / PHYSHLTH の特殊値（88=0日, 77=わからない, 99=回答拒否）
 MENTHLTH_RECODE = {88.0: 0, 77.0: np.nan, 99.0: np.nan}
 PHYSHLTH_RECODE = {88.0: 0, 77.0: np.nan, 99.0: np.nan}
+
+# _MENT14D の欠損コード（9=わからない/回答拒否/欠損）。
+# 値1-3は3区分そのものなので変換不要
+MENT14D_RECODE = {9.0: np.nan}
+
+# アウトカム変数の欠損値コード。共変量と同じく登録漏れを validate_data で検出する
+OUTCOME_MISSING_CODES = {
+    OUTCOME_ROBUSTNESS: [9.0],
+}
+
+# 欠損値コードを持たないアウトカム（個別のリコードルールで処理済み）
+OUTCOMES_RECODED = [OUTCOME_PRIMARY, OUTCOME_SECONDARY]
 
 # === ACEs変数（13項目。うち11項目をACEスコアの8カテゴリに集約する） ===
 # 家庭内の機能不全（はい/いいえ形式: 1=はい, 2=いいえ）

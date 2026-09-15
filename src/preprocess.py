@@ -10,7 +10,8 @@ import pandas as pd
 import numpy as np
 
 from src.config import (
-    ADDEPEV3_RECODE, MENTHLTH_RECODE, PHYSHLTH_RECODE,
+    ADDEPEV3_RECODE, MENTHLTH_RECODE, PHYSHLTH_RECODE, MENT14D_RECODE,
+    OUTCOME_ROBUSTNESS,
     ACE_HOUSEHOLD, ACE_ABUSE_FREQ, ACE_NEGLECT,
     ACE_HOUSEHOLD_RECODE, ACE_ABUSE_FREQ_RECODE, ACE_NEGLECT_RECODE,
     ACE_CATEGORIES, ACE_CATEGORIES_EXTENDED, ACE_SCORE_COLS_DIVRC8,
@@ -33,6 +34,10 @@ def recode_outcomes(df: pd.DataFrame) -> pd.DataFrame:
         df["MENTHLTH"] = df["MENTHLTH"].replace(MENTHLTH_RECODE)
         mask = df["MENTHLTH"].notna() & ~df["MENTHLTH"].between(0, 30)
         df.loc[mask, "MENTHLTH"] = np.nan
+
+    # _MENT14D: 9→欠損。値1-3（0日 / 1-13日 / 14日以上）はそのまま
+    if OUTCOME_ROBUSTNESS in df.columns:
+        df[OUTCOME_ROBUSTNESS] = df[OUTCOME_ROBUSTNESS].replace(MENT14D_RECODE)
 
     return df
 
