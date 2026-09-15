@@ -7,8 +7,8 @@ ACEモジュール回答者の研究用データセットを構築する。
 import pandas as pd
 from src.config import (
     MAIN_DATA, V1_DATA, V2_DATA,
-    WEIGHT_MAIN, WEIGHT_V1, WEIGHT_V2,
-    ACE_ALL_VARS, ALL_RESEARCH_VARS,
+    WEIGHT_MAIN, WEIGHT_V1, WEIGHT_V2, WEIGHT_FINAL,
+    ACE_FILTER_VAR, ALL_RESEARCH_VARS, DERIVED_VARS,
     ACE_STATES_MAIN, ACE_STATES_V1, ACE_STATES_V2,
 )
 
@@ -26,10 +26,10 @@ def load_main_ace_subset() -> pd.DataFrame:
     """メインデータからACEモジュール実施州のレコードを抽出"""
     df = load_xpt(MAIN_DATA)
     ace_states = set(ACE_STATES_MAIN.keys())
-    mask = df["_STATE"].isin(ace_states) & df[ACE_ALL_VARS[0]].notna()
+    mask = df["_STATE"].isin(ace_states) & df[ACE_FILTER_VAR].notna()
     df = df[mask].copy()
     df["_SOURCE"] = "MAIN"
-    df["_FINALWT"] = df[WEIGHT_MAIN]
+    df[WEIGHT_FINAL] = df[WEIGHT_MAIN]
     return df
 
 
@@ -37,10 +37,10 @@ def load_v1_ace_subset() -> pd.DataFrame:
     """V1データからACEモジュール実施州のレコードを抽出"""
     df = load_xpt(V1_DATA)
     ace_states = set(ACE_STATES_V1.keys())
-    mask = df["_STATE"].isin(ace_states) & df[ACE_ALL_VARS[0]].notna()
+    mask = df["_STATE"].isin(ace_states) & df[ACE_FILTER_VAR].notna()
     df = df[mask].copy()
     df["_SOURCE"] = "V1"
-    df["_FINALWT"] = df[WEIGHT_V1]
+    df[WEIGHT_FINAL] = df[WEIGHT_V1]
     return df
 
 
@@ -48,10 +48,10 @@ def load_v2_ace_subset() -> pd.DataFrame:
     """V2データからACEモジュール実施州のレコードを抽出"""
     df = load_xpt(V2_DATA)
     ace_states = set(ACE_STATES_V2.keys())
-    mask = df["_STATE"].isin(ace_states) & df[ACE_ALL_VARS[0]].notna()
+    mask = df["_STATE"].isin(ace_states) & df[ACE_FILTER_VAR].notna()
     df = df[mask].copy()
     df["_SOURCE"] = "V2"
-    df["_FINALWT"] = df[WEIGHT_V2]
+    df[WEIGHT_FINAL] = df[WEIGHT_V2]
     return df
 
 
@@ -60,7 +60,7 @@ def load_merged_research_data(columns: list[str] | None = None) -> pd.DataFrame:
     メイン・V1・V2を統合した研究用データセットを構築
 
     各ソースからACEモジュール回答者を抽出し、共通の列で縦結合する。
-    ウェイト変数は _FINALWT に統一する。
+    ウェイト変数は WEIGHT_FINAL（_FINALWT）に統一する。
 
     Parameters
     ----------
@@ -87,7 +87,7 @@ def load_merged_research_data(columns: list[str] | None = None) -> pd.DataFrame:
     common_cols = sorted(
         set(df_main.columns) & set(df_v1.columns) & set(df_v2.columns)
     )
-    extra_cols = ["_SOURCE", "_FINALWT"]
+    extra_cols = list(DERIVED_VARS)
     use_cols = sorted(set(common_cols + extra_cols))
 
     df = pd.concat(
@@ -105,8 +105,7 @@ def load_merged_research_data(columns: list[str] | None = None) -> pd.DataFrame:
 
 def load_research_subset() -> pd.DataFrame:
     """研究関連変数のみに絞った軽量データセットを返す"""
-    extra = ["_SOURCE", "_FINALWT"]
-    cols = list(set(ALL_RESEARCH_VARS + extra))
+    cols = list(set(ALL_RESEARCH_VARS + DERIVED_VARS))
     return load_merged_research_data(columns=cols)
 
 

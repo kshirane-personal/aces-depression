@@ -6,6 +6,7 @@ pyreadstat>=1.2
 # Statistics
 scipy>=1.13
 statsmodels>=0.14
+pygam>=0.9          # 一般化加法モデル（フェーズ4-4）
 
 # Machine learning
 scikit-learn>=1.4
@@ -16,9 +17,11 @@ optuna>=3.6
 # Visualization
 matplotlib>=3.8
 seaborn>=0.13
+missingno>=0.5      # 欠損パターンの可視化（フェーズ2-4）
 
 # Survey analysis
-samplics>=0.4
+# samplics はアーカイブ済み（メンテ終了）のため後継の svy に移行
+svy>=0.29
 
 # Multiple imputation
 miceforest>=5.7

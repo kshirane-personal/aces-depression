@@ -4,6 +4,8 @@
 リコーディング・ACEスコア算出・分析用データセットの出力を行う。
 リコーディングルールは全て src/config.py から参照する。
 """
+import warnings
+
 import pandas as pd
 import numpy as np
 
@@ -77,8 +79,21 @@ def compute_ace_categories(
     for cat_name, variables in categories.items():
         available = [v for v in variables if v in df.columns]
         if not available:
-            df[cat_name] = np.nan
-            continue
+            # 全欠損の列を作るとACEスコアが全員欠損になり、エラーなく完走して
+            # 「有効 0件」とだけ出力される。静かな失敗を防ぐため中断する
+            raise ValueError(
+                f"ACEカテゴリ '{cat_name}' の構成変数 {variables} が"
+                f"データに1つも存在しません。ACEスコアが全欠損になるため中断します。"
+            )
+        if len(available) < len(variables):
+            # BRFSSは州・年次によって設問構成が変わる（MMWR 2023でも
+            # Arkansasが性的虐待3問を1問に統合、New Hampshireが2問省略と報告）
+            lacking = [v for v in variables if v not in df.columns]
+            warnings.warn(
+                f"ACEカテゴリ '{cat_name}' の構成変数 {lacking} が欠けています。"
+                f"残る {available} のみで算出するため、他州・他年次との比較時は注意してください。",
+                stacklevel=2,
+            )
 
         if len(available) == 1:
             df[cat_name] = df[available[0]]

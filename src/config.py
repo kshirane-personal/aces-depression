@@ -26,13 +26,26 @@ ANALYSIS_DATA = DATA_PROCESSED / "analysis_data.parquet"
 MERGE_KEYS = ["SEQNO", "_STATE"]
 
 # === ウェイト変数 ===
+# ソース別ウェイト。生データではソースごとに名前が異なる
 WEIGHT_MAIN = "_LLCPWT"
 WEIGHT_V1 = "_LCPWTV1"
 WEIGHT_V2 = "_LCPWTV2"
 WEIGHT_TRUNCATED = "_LLCPWT2"
 
+# 統合後に使うウェイト。data_loader がソース別ウェイトをこの名前に統一する。
+# 分析では常にこれを使う（CLAUDE.md「統計解析上の必須ルール」）
+WEIGHT_FINAL = "_FINALWT"
+
 # === サーベイデザイン変数 ===
-SURVEY_VARS = ["_STATE", "SEQNO", "_STSTR", "_PSU", "_LLCPWT", "_LLCPWT2"]
+# 生データから読み込む変数。_LLCPWT はメインデータにしか存在しない
+SURVEY_VARS_SOURCE = ["_STATE", "SEQNO", "_STSTR", "_PSU", "_LLCPWT", "_LLCPWT2"]
+
+# data_loader が統合時に作る派生変数
+DERIVED_VARS = ["_SOURCE", WEIGHT_FINAL]
+
+# 統合後のデータセットに実在するサーベイデザイン変数。
+# _LLCPWT は3ソースの共通列に無いため統合時に落ちる。ウェイトは WEIGHT_FINAL を使う
+SURVEY_VARS = ["_STATE", "SEQNO", "_STSTR", "_PSU", "_LLCPWT2"] + DERIVED_VARS
 
 # === ACEモジュール実施州（FIPSコード） ===
 ACE_STATES_MAIN = {12: "FL", 13: "GA", 15: "HI", 32: "NV", 38: "ND", 51: "VA", 72: "PR", 78: "USVI"}
@@ -79,6 +92,11 @@ ACE_NEGLECT = {
 }
 
 ACE_ALL_VARS = list(ACE_HOUSEHOLD.keys()) + list(ACE_ABUSE_FREQ.keys()) + list(ACE_NEGLECT.keys())
+
+# ACEモジュール回答者の判定に使う設問（モジュール13の冒頭の設問）。
+# 定義順に依存しないよう明示する。「ACE項目のいずれかに回答」に広げても
+# 拾えるのは+1件のみだったため、単一設問での判定を採用している
+ACE_FILTER_VAR = "ACEDEPRS"
 
 # ACEスコア算出のための二値化ルール
 # 家庭内の機能不全: 1(はい)→1, 2(いいえ)→0, 8(両親が未婚/ACEDIVRC用)→欠損
@@ -220,7 +238,7 @@ ALL_RESEARCH_VARS = (
     + list(HEALTH_BEHAVIOR_VARS.keys())
     + list(HEALTH_STATUS_VARS.keys())
     + list(SDOH_VARS.keys())
-    + SURVEY_VARS
+    + SURVEY_VARS_SOURCE
 )
 
 # === 共変量の定義 ===
