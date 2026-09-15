@@ -182,6 +182,18 @@ PREVENTIVE_CARE_VARS = {
     "PSATEST1": "前立腺がん検診・PSA検査",
 }
 
+# 主解析で使う予防医療行動（事前指定）。検定はこの2変数との交互作用のみで、
+# Bonferroni補正（有意水準0.025）を適用する。複合指標は構成しない
+# （4変数の相互相関が0.16〜0.21で単一次元性が支持されないため）
+PREVENTIVE_PRIMARY = ["CHECKUP1", "FLUSHOT7"]
+
+# 探索的記述にとどめる変数（有意性の主張には用いない）
+PREVENTIVE_EXPLORATORY = ["LASTDEN4", "HIVTST7"]
+
+# 解析から除外する変数。欠損が構造的（性別・年齢による質問対象の限定、
+# オプショナルモジュールの州別実施状況）で多重補完の適用が不適切
+PREVENTIVE_EXCLUDED = ["HADMAM", "CRVCLPAP", "CRVCLHPV", "STOOLDN2", "PSATEST1"]
+
 # 予防医療行動の二値化（直近1年以内 → 1、それ以外 → 0）
 CHECKUP1_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: np.nan, 8.0: 0, 9.0: np.nan}
 LASTDEN4_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: np.nan, 8.0: 0, 9.0: np.nan}
