@@ -17,7 +17,7 @@ from src.config import (
     ACE_CATEGORIES, ACE_CATEGORIES_EXTENDED, ACE_SCORE_COLS_DIVRC8,
     ACEDIVRC_RECODE_DIVRC8, ACE_SCORE_GROUPS,
     PREVENTIVE_CARE_RECODES,
-    COVARIATE_MISSING_CODES,
+    COVARIATE_MISSING_CODES, PREVENTIVE_PRIMARY, PREVENTIVE_EXPLORATORY,
     ANALYSIS_DATA, SAMPLE_FLOW,
 )
 from src.data_loader import load_research_subset, get_load_flow
@@ -242,7 +242,7 @@ def write_sample_flow(df: pd.DataFrame) -> None:
         ]
 
     total = len(df)
-    core_preventive = ["CHECKUP1", "FLUSHOT7", "LASTDEN4", "HIVTST7"]
+    core_preventive = list(PREVENTIVE_PRIMARY) + list(PREVENTIVE_EXPLORATORY)
     lines += [
         "",
         f"## 2. 統合後（{total:,}件）の有効件数",
@@ -255,9 +255,18 @@ def write_sample_flow(df: pd.DataFrame) -> None:
     for label, mask in [
         ("うつ病診断歴（ADDEPEV3）が有効", df["ADDEPEV3"].notna()),
         ("ACEスコア（8カテゴリ）が有効", df["ace_score"].notna()),
-        ("予防医療コア4変数がすべて有効", df[core_preventive].notna().all(axis=1)),
         (
-            "**主解析の実効サンプル（上記3条件すべて）**",
+            f"主解析の予防医療2変数が有効（{' / '.join(PREVENTIVE_PRIMARY)}）",
+            df[list(PREVENTIVE_PRIMARY)].notna().all(axis=1),
+        ),
+        (
+            "**主解析の実効サンプル（ADDEPEV3・ACEスコア・主解析2変数すべて有効）**",
+            df["ADDEPEV3"].notna()
+            & df["ace_score"].notna()
+            & df[list(PREVENTIVE_PRIMARY)].notna().all(axis=1),
+        ),
+        (
+            "（参考）探索的記述を含む4変数すべて有効",
             df["ADDEPEV3"].notna()
             & df["ace_score"].notna()
             & df[core_preventive].notna().all(axis=1),
@@ -268,8 +277,8 @@ def write_sample_flow(df: pd.DataFrame) -> None:
         lines.append(f"| {label} | {n:,} | {pct} |")
     lines += [
         "",
-        "コア4変数は CHECKUP1 / FLUSHOT7 / LASTDEN4 / HIVTST7（欠損5%未満）。",
-        "がん検診系は性別・年齢・モジュール実施状況による構造的欠損が大きいため含めていない。",
+        "主解析の予防医療変数は config.PREVENTIVE_PRIMARY で事前指定（交互作用検定はこの2件のみ）。",
+        "LASTDEN4 / HIVTST7 は探索的記述、がん検診系5変数は構造的欠損のため解析から除外。",
         "詳細は `docs/implementation_notes.md` を参照。",
         "",
     ]
