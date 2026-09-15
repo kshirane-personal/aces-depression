@@ -21,6 +21,10 @@ V2_DATA = DATA_RAW / "LLCP24V2.XPT"
 # === 分析用データセット（前処理の出力） ===
 ANALYSIS_DATA = DATA_PROCESSED / "analysis_data.parquet"
 
+# サンプルフロー（各段階での件数の記録）。学会発表でのサンプルサイズ説明と、
+# 件数が想定外に減っていないかの検出に使う
+SAMPLE_FLOW = DATA_INTERIM / "sample_flow.md"
+
 # === レコード識別子 ===
 # 3ソースは縦結合するため結合キーとしては使わない。個票の一意識別・重複チェック用
 MERGE_KEYS = ["SEQNO", "_STATE"]

@@ -10,7 +10,8 @@
 @docs/data_dictionary.md
 @docs/analysis_workflow.md
 
-研究計画の全体構想は `docs/research_plan.docx`（`pandoc -t markdown` で読める）。
+- `docs/research_plan.md` — 研究計画書（背景・仮説・手法・意義・Limitation）
+- `docs/implementation_notes.md` — `src/` のコードが何をしているかの自然言語版
 
 ## 環境セットアップ
 
@@ -30,6 +31,8 @@ pip install -r requirements.txt
 | `src/config.py`        | 変数定義・リコーディングルール・定数の**唯一の情報源**  | import して使用                   |
 | `src/data_loader.py`   | BRFSS 3ソース（MAIN/V1/V2）の読み込みと統合 | `python -m src.data_loader`   |
 | `src/validate_data.py` | 統合データの整合性チェック                  | `python -m src.validate_data` |
+| `src/preprocess.py`    | リコーディング・ACEスコア算出・分析用データセット出力     | `python -m src.preprocess`    |
+| — | 上記の副産物として `data/interim/sample_flow.md`（各段階のサンプル件数）を生成 | — |
 | `src/run_all.py`       | 全パイプラインのマスタースクリプト              | `python -m src.run_all`       |
 
 
@@ -77,10 +80,39 @@ pip install -r requirements.txt
 
 
 
-## タスク管理の棲み分け
+## ドキュメントの棲み分けと更新ルール
 
-- **`docs/analysis_workflow.md`** = フェーズの全体地図。方針レベルの判断（仮説ベース項目、更新トリガー、完了条件）を管理する。情報の正はここ
-- **GitHub Issues** = 具体的なネクストアクションや小さな検証タスク。背景の説明は workflow.md へのリンク（例: `docs/analysis_workflow.md のフェーズ1-3参照`）で済ませ、Issue 側に方針の文言をコピペしない
+半年後に再開しても現在地と判断理由を追えることを目的とする。同じ内容を2箇所に書かない。
+
+| 文書 | 役割 | 更新するタイミング |
+|---|---|---|
+| `docs/research_plan.md` | 研究の**変わらない骨格**（背景・仮説・意義・Limitation） | 仮説や研究デザインそのものが変わったとき。頻繁には変わらない |
+| `docs/analysis_workflow.md` | フェーズの地図と**現在地**。方針レベルの判断の正 | 下記「必ずセットで更新するもの」を参照 |
+| `docs/data_dictionary.md` | 変数の定義・コーディング・二値化ルール | 同上 |
+| `docs/implementation_notes.md` | `src/` が何をどの順でやっているか、埋め込まれた判断 | 同上 |
+| CLAUDE.md | 運用ルールとゴッチャ | ルールやハマりどころが増えたとき |
+| git コミットメッセージ | **個別の変更をなぜ行ったか**（詳細はここ） | 毎回。理由を本文に書く |
+| GitHub Issues | **未決の判断**と具体的なネクストアクション | 判断が必要になったとき作成、決まったら閉じる |
+
+独立した意思決定ログは作らない。「なぜ」はコミットメッセージに書き、
+`analysis_workflow.md` の更新履歴を索引として使う。
+
+### 必ずセットで更新するもの
+
+| 変更したもの | 一緒に更新する文書 |
+|---|---|
+| `config.py` の変数定義・リコーディングルール・閾値 | `docs/data_dictionary.md` |
+| `src/` の処理の流れ、埋め込まれた判断 | `docs/implementation_notes.md` |
+| フェーズの進捗、「仮説ベース」項目の確定、更新トリガーの発火 | `docs/analysis_workflow.md` の該当箇所 **＋ 更新履歴に1行** |
+| 研究デザイン・仮説・解析手法の方針 | `docs/research_plan.md` |
+
+`analysis_workflow.md` の更新履歴は「日付・決めたこと・根拠（コミットハッシュまたはIssue番号）」
+の3点を1行で書く。理由の本文はコミットメッセージ側にあるので繰り返さない。
+
+### Issue の書き方
+
+背景の説明は `docs/analysis_workflow.md` へのリンク（例: `フェーズ1-3参照`）で済ませ、
+Issue 側に方針の文言をコピペしない。Issue に書くのは「決めること」と「判断材料」。
 
 
 

@@ -13,6 +13,15 @@ from src.config import (
 )
 
 
+# 読み込み各段階の件数。load_merged_research_data() の先頭でクリアされる
+_LOAD_FLOW: list[tuple[str, str, int]] = []
+
+
+def get_load_flow() -> list[tuple[str, str, int]]:
+    """直近の読み込みで記録したサンプルフロー（ソース, 段階, 件数）を返す"""
+    return list(_LOAD_FLOW)
+
+
 def load_xpt(path: str | object, columns: list[str] | None = None) -> pd.DataFrame:
     """XPTファイルを読み込み、指定列のみ返す"""
     df = pd.read_sas(str(path), format="xport")
@@ -25,8 +34,14 @@ def load_xpt(path: str | object, columns: list[str] | None = None) -> pd.DataFra
 def load_main_ace_subset() -> pd.DataFrame:
     """メインデータからACEモジュール実施州のレコードを抽出"""
     df = load_xpt(MAIN_DATA)
+    _LOAD_FLOW.append(("MAIN", "全レコード", len(df)))
+
     ace_states = set(ACE_STATES_MAIN.keys())
-    mask = df["_STATE"].isin(ace_states) & df[ACE_FILTER_VAR].notna()
+    in_states = df["_STATE"].isin(ace_states)
+    _LOAD_FLOW.append(("MAIN", "ACE実施州", int(in_states.sum())))
+
+    mask = in_states & df[ACE_FILTER_VAR].notna()
+    _LOAD_FLOW.append(("MAIN", "ACE回答者", int(mask.sum())))
     df = df[mask].copy()
     df["_SOURCE"] = "MAIN"
     df[WEIGHT_FINAL] = df[WEIGHT_MAIN]
@@ -36,8 +51,14 @@ def load_main_ace_subset() -> pd.DataFrame:
 def load_v1_ace_subset() -> pd.DataFrame:
     """V1データからACEモジュール実施州のレコードを抽出"""
     df = load_xpt(V1_DATA)
+    _LOAD_FLOW.append(("V1", "全レコード", len(df)))
+
     ace_states = set(ACE_STATES_V1.keys())
-    mask = df["_STATE"].isin(ace_states) & df[ACE_FILTER_VAR].notna()
+    in_states = df["_STATE"].isin(ace_states)
+    _LOAD_FLOW.append(("V1", "ACE実施州", int(in_states.sum())))
+
+    mask = in_states & df[ACE_FILTER_VAR].notna()
+    _LOAD_FLOW.append(("V1", "ACE回答者", int(mask.sum())))
     df = df[mask].copy()
     df["_SOURCE"] = "V1"
     df[WEIGHT_FINAL] = df[WEIGHT_V1]
@@ -47,8 +68,14 @@ def load_v1_ace_subset() -> pd.DataFrame:
 def load_v2_ace_subset() -> pd.DataFrame:
     """V2データからACEモジュール実施州のレコードを抽出"""
     df = load_xpt(V2_DATA)
+    _LOAD_FLOW.append(("V2", "全レコード", len(df)))
+
     ace_states = set(ACE_STATES_V2.keys())
-    mask = df["_STATE"].isin(ace_states) & df[ACE_FILTER_VAR].notna()
+    in_states = df["_STATE"].isin(ace_states)
+    _LOAD_FLOW.append(("V2", "ACE実施州", int(in_states.sum())))
+
+    mask = in_states & df[ACE_FILTER_VAR].notna()
+    _LOAD_FLOW.append(("V2", "ACE回答者", int(mask.sum())))
     df = df[mask].copy()
     df["_SOURCE"] = "V2"
     df[WEIGHT_FINAL] = df[WEIGHT_V2]
@@ -72,6 +99,8 @@ def load_merged_research_data(columns: list[str] | None = None) -> pd.DataFrame:
     pd.DataFrame
         統合済みの研究用データセット
     """
+    _LOAD_FLOW.clear()
+
     print("メインデータ読み込み中...", flush=True)
     df_main = load_main_ace_subset()
     print(f"  メイン: {len(df_main):,}件（{list(ACE_STATES_MAIN.values())}）")

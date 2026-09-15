@@ -17,9 +17,9 @@ from src.config import (
     ACEDIVRC_RECODE_DIVRC8, ACE_SCORE_GROUPS,
     PREVENTIVE_CARE_RECODES,
     COVARIATE_MISSING_CODES,
-    ANALYSIS_DATA,
+    ANALYSIS_DATA, SAMPLE_FLOW,
 )
-from src.data_loader import load_research_subset
+from src.data_loader import load_research_subset, get_load_flow
 
 
 def recode_outcomes(df: pd.DataFrame) -> pd.DataFrame:
@@ -194,6 +194,85 @@ def recode_all(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def write_sample_flow(df: pd.DataFrame) -> None:
+    """各段階での件数を data/interim/sample_flow.md に書き出す
+
+    学会発表でサンプルサイズを聞かれたときに即答できるようにするためと、
+    件数が想定外に減っていないかを検出するための記録。
+    """
+    flow = get_load_flow()
+    sources = ["MAIN", "V1", "V2"]
+    stages = ["全レコード", "ACE実施州", "ACE回答者"]
+    counts = {(s, st): n for s, st, n in flow}
+
+    lines = [
+        "# サンプルフロー",
+        "",
+        "`python -m src.preprocess` の実行時に自動生成。",
+        "",
+        "## 1. 読み込み（ソース別の絞り込み）",
+        "",
+        "V1 / V2 ファイルは MAIN の**部分集合**であり、回答者はMAINと重複する",
+        "（オプショナルモジュールの回答を格納するための別ファイル）。",
+        "本研究が各ファイルから抽出する州は互いに素なので、ACE回答者に重複はない。",
+        "",
+        "| ソース | ファイルのレコード数 | ACE実施州 | ACE回答者 |",
+        "|---|---:|---:|---:|",
+    ]
+    totals = dict.fromkeys(stages, 0)
+    for s in sources:
+        vals = [counts.get((s, st), 0) for st in stages]
+        for st, v in zip(stages, vals):
+            totals[st] += v
+        lines.append(f"| {s} | {vals[0]:,} | {vals[1]:,} | {vals[2]:,} |")
+    t = [totals[st] for st in stages]
+    lines.append(f"| **合計** | 重複のため計上せず | **{t[1]:,}** | **{t[2]:,}** |")
+
+    universe = counts.get(("MAIN", "全レコード"), 0)
+    if universe:
+        lines += [
+            "",
+            f"BRFSS 2024 の総回答者 {universe:,}件 に対し、最終的な解析対象は "
+            f"{t[2]:,}件（{t[2] / universe:.1%}）。",
+        ]
+
+    total = len(df)
+    core_preventive = ["CHECKUP1", "FLUSHOT7", "LASTDEN4", "HIVTST7"]
+    lines += [
+        "",
+        f"## 2. 統合後（{total:,}件）の有効件数",
+        "",
+        "レコードを除外するのではなく、欠損の有無で使える件数が決まる。",
+        "",
+        "| 条件 | 件数 | 統合後に対する割合 |",
+        "|---|---:|---:|",
+    ]
+    for label, mask in [
+        ("うつ病診断歴（ADDEPEV3）が有効", df["ADDEPEV3"].notna()),
+        ("ACEスコア（8カテゴリ）が有効", df["ace_score"].notna()),
+        ("予防医療コア4変数がすべて有効", df[core_preventive].notna().all(axis=1)),
+        (
+            "**主解析の実効サンプル（上記3条件すべて）**",
+            df["ADDEPEV3"].notna()
+            & df["ace_score"].notna()
+            & df[core_preventive].notna().all(axis=1),
+        ),
+    ]:
+        n = int(mask.sum())
+        pct = f"{n / total:.1%}" if total else "-"
+        lines.append(f"| {label} | {n:,} | {pct} |")
+    lines += [
+        "",
+        "コア4変数は CHECKUP1 / FLUSHOT7 / LASTDEN4 / HIVTST7（欠損5%未満）。",
+        "がん検診系は性別・年齢・モジュール実施状況による構造的欠損が大きいため含めていない。",
+        "詳細は `docs/implementation_notes.md` を参照。",
+        "",
+    ]
+    SAMPLE_FLOW.parent.mkdir(parents=True, exist_ok=True)
+    SAMPLE_FLOW.write_text("\n".join(lines), encoding="utf-8")
+    print(f"サンプルフロー: {SAMPLE_FLOW}")
+
+
 def run_preprocessing() -> pd.DataFrame:
     """前処理パイプライン（データ読み込み→リコーディング→保存）"""
     print("データ読み込み中...")
@@ -232,6 +311,7 @@ def run_preprocessing() -> pd.DataFrame:
 
     df.to_parquet(ANALYSIS_DATA, index=False)
     print(f"\n保存先: {ANALYSIS_DATA}")
+    write_sample_flow(df)
 
     return df
 
