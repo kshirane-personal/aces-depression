@@ -4,14 +4,47 @@
 統合済みデータセットの整合性をチェックし、問題があれば警告を表示する。
 """
 import pandas as pd
-import numpy as np
 from src.config import (
-    ACE_ALL_VARS, OUTCOME_VARS, SURVEY_VARS,
+    ACE_ALL_VARS,
     ACE_STATES_MAIN, ACE_STATES_V1, ACE_STATES_V2,
     MISSING_THRESHOLD_EXCLUDE, MISSING_THRESHOLD_IMPUTE,
     ALL_RESEARCH_VARS,
+    COVARIATE_VARS, COVARIATE_MISSING_CODES,
+    COVARIATES_NO_MISSING_CODE, COVARIATES_SPECIAL_HANDLING,
 )
 from src.data_loader import load_research_subset
+from src.preprocess import recode_all
+
+
+def check_covariate_coverage() -> None:
+    """共変量の欠損値処理が漏れなく定義されているか確認
+
+    共変量は「欠損値コードあり」「欠損値コードなし」「個別処理」のいずれかに
+    必ず分類されている必要がある。未分類の変数は登録漏れの可能性が高い。
+    データ読み込み前に実行できるため最初にチェックする。
+    """
+    print("=" * 60)
+    print("0. 共変量の欠損値処理カバレッジ")
+    print("=" * 60)
+    classified = (
+        set(COVARIATE_MISSING_CODES)
+        | set(COVARIATES_NO_MISSING_CODE)
+        | set(COVARIATES_SPECIAL_HANDLING)
+    )
+    print(f"  共変量: {len(COVARIATE_VARS)}変数")
+    print(f"    欠損値コードあり: {len(COVARIATE_MISSING_CODES)}変数")
+    print(f"    欠損値コードなし: {len(COVARIATES_NO_MISSING_CODE)}変数")
+    print(f"    個別処理:         {len(COVARIATES_SPECIAL_HANDLING)}変数")
+
+    unclassified = [v for v in COVARIATE_VARS if v not in classified]
+    if unclassified:
+        print(f"  [警告] 未分類の共変量（欠損値コードの登録漏れの可能性）: {unclassified}")
+    else:
+        print("  → 全ての共変量が分類済み")
+
+    stale = sorted(v for v in classified if v not in COVARIATE_VARS)
+    if stale:
+        print(f"  [警告] 共変量グループに存在しない変数が登録されている: {stale}")
 
 
 def check_record_counts(df: pd.DataFrame) -> None:
@@ -41,13 +74,25 @@ def check_state_distribution(df: pd.DataFrame) -> None:
         print(f"  [警告] 想定外の州コード: {unexpected}")
 
 
-def check_missing_rates(df: pd.DataFrame) -> None:
-    """欠損率の確認と分類"""
+def check_missing_rates(df: pd.DataFrame, df_recoded: pd.DataFrame) -> None:
+    """欠損率の確認と分類
+
+    判定はリコード後（欠損値コード 7/9/77/99 等をNaN化した後）の欠損率で行う。
+    生データの欠損率も併記し、欠損値コードがどれだけ寄与しているかを示す。
+    """
     print("\n" + "=" * 60)
-    print("3. 欠損率チェック")
+    print("3. 欠損率チェック（欠損値コード処理後で判定）")
     print("=" * 60)
-    research_cols = [c for c in ALL_RESEARCH_VARS if c in df.columns]
-    missing = df[research_cols].isnull().mean().sort_values(ascending=False)
+    research_cols = [
+        c for c in ALL_RESEARCH_VARS if c in df.columns and c in df_recoded.columns
+    ]
+    missing = df_recoded[research_cols].isnull().mean().sort_values(ascending=False)
+    missing_raw = df[research_cols].isnull().mean()
+
+    def show(var, rate):
+        raw = missing_raw[var]
+        note = f"（生データでは {raw:.1%}）" if abs(rate - raw) >= 0.001 else ""
+        print(f"    {var}: {rate:.1%}{note}")
 
     high_missing = missing[missing >= MISSING_THRESHOLD_EXCLUDE]
     mid_missing = missing[
@@ -61,17 +106,17 @@ def check_missing_rates(df: pd.DataFrame) -> None:
     if len(high_missing) > 0:
         print(f"\n  [要除外] 欠損率30%以上（{len(high_missing)}変数）:")
         for var, rate in high_missing.items():
-            print(f"    {var}: {rate:.1%}")
+            show(var, rate)
 
     if len(mid_missing) > 0:
         print(f"\n  [要補完] 欠損率5-30%（{len(mid_missing)}変数）:")
         for var, rate in mid_missing.items():
-            print(f"    {var}: {rate:.1%}")
+            show(var, rate)
 
     if len(low_missing) > 0:
         print(f"\n  [完全ケース分析可] 欠損率5%未満（{len(low_missing)}変数）:")
         for var, rate in low_missing.items():
-            print(f"    {var}: {rate:.1%}")
+            show(var, rate)
 
     print(f"\n  [完全] 欠損なし: {len(complete)}変数")
 
@@ -126,13 +171,17 @@ def check_survey_weights(df: pd.DataFrame) -> None:
 
 def run_all_checks() -> None:
     """全検証を実行"""
-    print("データ読み込み中...")
+    check_covariate_coverage()
+
+    print("\nデータ読み込み中...")
     df = load_research_subset()
+    print("リコーディング適用中（欠損率判定用）...")
+    df_recoded = recode_all(df)
     print()
 
     check_record_counts(df)
     check_state_distribution(df)
-    check_missing_rates(df)
+    check_missing_rates(df, df_recoded)
     check_outcome_distribution(df)
     check_ace_distribution(df)
     check_survey_weights(df)

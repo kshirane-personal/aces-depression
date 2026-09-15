@@ -7,16 +7,15 @@
 import pandas as pd
 import numpy as np
 
-pd.set_option("future.no_silent_downcasting", True)
-
 from src.config import (
     ADDEPEV3_RECODE, MENTHLTH_RECODE, PHYSHLTH_RECODE,
     ACE_HOUSEHOLD, ACE_ABUSE_FREQ, ACE_NEGLECT,
     ACE_HOUSEHOLD_RECODE, ACE_ABUSE_FREQ_RECODE, ACE_NEGLECT_RECODE,
-    ACE_CATEGORIES, ACE_SCORE_GROUPS,
+    ACE_CATEGORIES, ACE_CATEGORIES_EXTENDED, ACE_SCORE_COLS_DIVRC8,
+    ACEDIVRC_RECODE_DIVRC8, ACE_SCORE_GROUPS,
     PREVENTIVE_CARE_RECODES,
     COVARIATE_MISSING_CODES,
-    DATA_PROCESSED,
+    ANALYSIS_DATA,
 )
 from src.data_loader import load_research_subset
 
@@ -24,18 +23,29 @@ from src.data_loader import load_research_subset
 def recode_outcomes(df: pd.DataFrame) -> pd.DataFrame:
     """アウトカム変数のリコーディング"""
     # ADDEPEV3: 1→1(うつ病あり), 2→0(なし), 7/9→欠損
-    df["ADDEPEV3"] = df["ADDEPEV3"].map(ADDEPEV3_RECODE)
+    if "ADDEPEV3" in df.columns:
+        df["ADDEPEV3"] = df["ADDEPEV3"].map(ADDEPEV3_RECODE)
 
     # MENTHLTH: 88→0日, 77/99→欠損, 1-30はそのまま
-    df["MENTHLTH"] = df["MENTHLTH"].replace(MENTHLTH_RECODE)
-    mask = df["MENTHLTH"].notna() & ~df["MENTHLTH"].between(0, 30)
-    df.loc[mask, "MENTHLTH"] = np.nan
+    if "MENTHLTH" in df.columns:
+        df["MENTHLTH"] = df["MENTHLTH"].replace(MENTHLTH_RECODE)
+        mask = df["MENTHLTH"].notna() & ~df["MENTHLTH"].between(0, 30)
+        df.loc[mask, "MENTHLTH"] = np.nan
 
     return df
 
 
 def recode_ace_variables(df: pd.DataFrame) -> pd.DataFrame:
-    """ACE変数のリコーディング（二値化）"""
+    """ACE変数のリコーディング（二値化）
+
+    感度分析用に ACEDIVRC=8（両親が未婚）を Not Exposed(0) とした版の
+    親の離婚カテゴリも作る。ACEDIVRC が上書きされる前に算出する必要がある。
+    """
+    if "ACEDIVRC" in df.columns:
+        df["ace_parental_separation_divrc8"] = df["ACEDIVRC"].map(
+            ACEDIVRC_RECODE_DIVRC8
+        )
+
     for var in ACE_HOUSEHOLD:
         if var in df.columns:
             df[var] = df[var].map(ACE_HOUSEHOLD_RECODE)
@@ -51,13 +61,20 @@ def recode_ace_variables(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def compute_ace_categories(df: pd.DataFrame) -> pd.DataFrame:
-    """ACE 8カテゴリの二値指標を算出
+def compute_ace_categories(
+    df: pd.DataFrame, categories: dict | None = None
+) -> pd.DataFrame:
+    """ACEカテゴリの二値指標を算出
 
-    各カテゴリに複数変数がある場合（例: 身体的虐待 = ACEPUNCH or ACEHURT1）、
-    いずれか1つでも該当→1、全て非該当→0、非該当と欠損の混在→欠損とする。
+    各カテゴリに複数変数がある場合（例: 性的虐待 = ACETOUCH or ACETTHEM or ACEHVSEX、
+    家庭内の物質依存 = ACEDRINK or ACEDRUGS）、いずれか1つでも該当→1、
+    全て非該当→0、非該当と欠損の混在→欠損とする。
+    カテゴリと変数の対応は config の定義が唯一の情報源。
+    既定は感度分析用の10カテゴリを算出し、主解析のスコアは
+    そのうち8カテゴリだけを合計して作る（compute_ace_score 参照）。
     """
-    for cat_name, variables in ACE_CATEGORIES.items():
+    categories = ACE_CATEGORIES_EXTENDED if categories is None else categories
+    for cat_name, variables in categories.items():
         available = [v for v in variables if v in df.columns]
         if not available:
             df[cat_name] = np.nan
@@ -77,26 +94,34 @@ def compute_ace_categories(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def compute_ace_score(df: pd.DataFrame) -> pd.DataFrame:
-    """ACEスコア（0-8）と層別グループを算出
+def compute_ace_score(
+    df: pd.DataFrame,
+    cat_cols: list[str] | None = None,
+    score_col: str = "ace_score",
+    group_col: str = "ace_group",
+) -> pd.DataFrame:
+    """ACEスコアと層別グループを算出
 
-    8カテゴリのうち1つでも欠損があればスコアは欠損とする（仮説ベース）。
-    EDA後に部分欠損の許容範囲を再検討する可能性あり。
+    cat_cols は合計対象のカテゴリ列名リスト（既定は主解析の8カテゴリ）。
+    全カテゴリのうち1つでも欠損があればスコアは欠損とする。
+    これは CDC MMWR 2023 の完全ケース方式（"Participants with missing data for
+    any type of ACE were excluded"）と同じ扱い。
     """
-    cat_cols = list(ACE_CATEGORIES.keys())
+    cat_cols = list(ACE_CATEGORIES) if cat_cols is None else list(cat_cols)
 
-    # min_count=8: 8カテゴリ全て有効でなければNaN
-    df["ace_score"] = df[cat_cols].sum(axis=1, min_count=len(cat_cols))
+    # min_count: 全カテゴリが有効でなければNaN
+    df[score_col] = df[cat_cols].sum(axis=1, min_count=len(cat_cols))
 
-    # 層別化（pd.cutで区間を定義）
+    # 層別化（pd.cutで区間を定義）。上限Noneは無制限として扱うため、
+    # カテゴリ数を増やしてもスコア上位がビンから外れてNaNになることはない
     groups = list(ACE_SCORE_GROUPS.items())
     bins = [groups[0][1][0] - 0.5]
     for _, (_, high) in groups:
-        bins.append(high + 0.5)
+        bins.append(np.inf if high is None else high + 0.5)
     labels = [label for label, _ in groups]
 
-    df["ace_group"] = pd.cut(
-        df["ace_score"], bins=bins, labels=labels, ordered=True,
+    df[group_col] = pd.cut(
+        df[score_col], bins=bins, labels=labels, ordered=True,
     )
 
     return df
@@ -138,8 +163,17 @@ def recode_all(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df = recode_outcomes(df)
     df = recode_ace_variables(df)
-    df = compute_ace_categories(df)
-    df = compute_ace_score(df)
+    df = compute_ace_categories(df, ACE_CATEGORIES_EXTENDED)
+    # 主解析: 8カテゴリ（ace_score / ace_group）
+    df = compute_ace_score(df, list(ACE_CATEGORIES), "ace_score", "ace_group")
+    # 感度分析1: 10カテゴリ（ネグレクト2項目を追加）
+    df = compute_ace_score(
+        df, list(ACE_CATEGORIES_EXTENDED), "ace_score_ext", "ace_group_ext"
+    )
+    # 感度分析2: ACEDIVRC=8 を Not Exposed(0) として扱う（CDC 2021年手順書準拠）
+    df = compute_ace_score(
+        df, ACE_SCORE_COLS_DIVRC8, "ace_score_divrc8", "ace_group_divrc8"
+    )
     df = recode_preventive_care(df)
     df = clean_covariates(df)
     return df
@@ -162,16 +196,27 @@ def run_preprocessing() -> pd.DataFrame:
     if n_dep_valid > 0:
         dep_rate = df.loc[df["ADDEPEV3"].notna(), "ADDEPEV3"].mean()
         print(f"    うつ病あり: {(df['ADDEPEV3'] == 1).sum():,} ({dep_rate:.1%})")
-    print(f"  ACEスコア 有効: {n_ace_valid:,} ({n_ace_valid / n:.1%})")
+    print(f"  ACEスコア 有効: {n_ace_valid:,} ({n_ace_valid / n:.1%})  ※主解析=8カテゴリ")
     if n_ace_valid > 0:
         print(f"    平均: {df['ace_score'].mean():.2f}, 中央値: {df['ace_score'].median():.0f}")
         for label in ACE_SCORE_GROUPS:
             count = (df["ace_group"] == label).sum()
             print(f"    {label}: {count:,} ({count / n_ace_valid:.1%})")
 
-    output_path = DATA_PROCESSED / "analysis_data.parquet"
-    df.to_parquet(output_path, index=False)
-    print(f"\n保存先: {output_path}")
+    for score_col, group_col, desc in [
+        ("ace_score_ext", "ace_group_ext", "感度分析1: 10カテゴリ"),
+        ("ace_score_divrc8", "ace_group_divrc8", "感度分析2: ACEDIVRC=8を0扱い"),
+    ]:
+        n_valid = df[score_col].notna().sum()
+        print(f"  ACEスコア({desc}) 有効: {n_valid:,} ({n_valid / n:.1%})")
+        if n_valid > 0:
+            print(f"    平均: {df[score_col].mean():.2f}, 中央値: {df[score_col].median():.0f}")
+            for label in ACE_SCORE_GROUPS:
+                count = (df[group_col] == label).sum()
+                print(f"    {label}: {count:,} ({count / n_valid:.1%})")
+
+    df.to_parquet(ANALYSIS_DATA, index=False)
+    print(f"\n保存先: {ANALYSIS_DATA}")
 
     return df
 

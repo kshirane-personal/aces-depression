@@ -3,6 +3,8 @@
 """
 from pathlib import Path
 
+import numpy as np
+
 # === パス定義 ===
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_RAW = PROJECT_ROOT / "data" / "raw"
@@ -16,7 +18,11 @@ MAIN_DATA = DATA_RAW / "LLCP2024.XPT "  # 末尾スペースあり（CDC原本�
 V1_DATA = DATA_RAW / "LLCP24V1.XPT"
 V2_DATA = DATA_RAW / "LLCP24V2.XPT"
 
-# === マージキー ===
+# === 分析用データセット（前処理の出力） ===
+ANALYSIS_DATA = DATA_PROCESSED / "analysis_data.parquet"
+
+# === レコード識別子 ===
+# 3ソースは縦結合するため結合キーとしては使わない。個票の一意識別・重複チェック用
 MERGE_KEYS = ["SEQNO", "_STATE"]
 
 # === ウェイト変数 ===
@@ -40,13 +46,13 @@ OUTCOME_SECONDARY = "MENTHLTH"   # 過去30日間のメンタルヘルス不良�
 OUTCOME_VARS = [OUTCOME_PRIMARY, OUTCOME_SECONDARY]
 
 # ADDEPEV3のリコーディング: 1=はい → 1, 2=いいえ → 0, 7/9=除外
-ADDEPEV3_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
+ADDEPEV3_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan}
 
 # MENTHLTH / PHYSHLTH の特殊値（88=0日, 77=わからない, 99=回答拒否）
-MENTHLTH_RECODE = {88.0: 0, 77.0: None, 99.0: None}
-PHYSHLTH_RECODE = {88.0: 0, 77.0: None, 99.0: None}
+MENTHLTH_RECODE = {88.0: 0, 77.0: np.nan, 99.0: np.nan}
+PHYSHLTH_RECODE = {88.0: 0, 77.0: np.nan, 99.0: np.nan}
 
-# === ACEs変数（11の質問項目） ===
+# === ACEs変数（13項目。うち11項目をACEスコアの8カテゴリに集約する） ===
 # 家庭内の機能不全（はい/いいえ形式: 1=はい, 2=いいえ）
 ACE_HOUSEHOLD = {
     "ACEDEPRS": "家庭内の精神疾患（うつ病・精神疾患・自殺傾向のある同居人）",
@@ -75,16 +81,26 @@ ACE_NEGLECT = {
 ACE_ALL_VARS = list(ACE_HOUSEHOLD.keys()) + list(ACE_ABUSE_FREQ.keys()) + list(ACE_NEGLECT.keys())
 
 # ACEスコア算出のための二値化ルール
-# 家庭内の機能不全: 1(はい)→1, 2(いいえ)→0, 8(該当なし/ACEDIVRC用)→欠損
-ACE_HOUSEHOLD_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 8.0: None, 9.0: None}
+# 家庭内の機能不全: 1(はい)→1, 2(いいえ)→0, 8(両親が未婚/ACEDIVRC用)→欠損
+#
+# 値8（両親が未婚）の扱いはCDCの2文書で見解が分かれる:
+#   - MMWR 2023;72(26)   : 欠損として扱う（"responses of 'Parents not married' or
+#                          'Don't know' were coded as missing"）
+#   - CDC 2021年手順書    : Not Exposed(0) として扱う
+# 本研究は主解析をMMWR 2023に合わせて「欠損」とする（実データで790件, 1.3%）。
+# CDC 2021手順書に沿った版は感度分析として別途算出する（ACEDIVRC_RECODE_DIVRC8）。
+ACE_HOUSEHOLD_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 8.0: np.nan, 9.0: np.nan}
+
+# 感度分析用: ACEDIVRC の値8を Not Exposed(0) として扱う（CDC 2021年手順書準拠）
+ACEDIVRC_RECODE_DIVRC8 = {1.0: 1, 2.0: 0, 7.0: np.nan, 8.0: 0, 9.0: np.nan}
 
 # 虐待（頻度）: 1(Never/なし)→0, 2(Once/1回)→1, 3(More than once/2回以上)→1
-ACE_ABUSE_FREQ_RECODE = {1.0: 0, 2.0: 1, 3.0: 1, 7.0: None, 9.0: None}
+ACE_ABUSE_FREQ_RECODE = {1.0: 0, 2.0: 1, 3.0: 1, 7.0: np.nan, 9.0: np.nan}
 
 # ネグレクト（逆転項目）: 1(Never)/2(A little)/3(Some)→1（ネグレクト）, 4(Most)/5(All)→0（保護あり）
-ACE_NEGLECT_RECODE = {1.0: 1, 2.0: 1, 3.0: 1, 4.0: 0, 5.0: 0, 7.0: None, 9.0: None}
+ACE_NEGLECT_RECODE = {1.0: 1, 2.0: 1, 3.0: 1, 4.0: 0, 5.0: 0, 7.0: np.nan, 9.0: np.nan}
 
-# ACEスコアに使用する8カテゴリ（11項目を8カテゴリに集約）
+# ACEスコアに使用する8カテゴリ（11項目を8カテゴリに集約）※主解析の曝露定義
 ACE_CATEGORIES = {
     "ace_emotional_abuse": ["ACESWEAR"],          # 精神的虐待
     "ace_physical_abuse": ["ACEHURT1"],  # 身体的虐待（子どもが直接受けた暴力）
@@ -95,6 +111,25 @@ ACE_CATEGORIES = {
     "ace_parental_separation": ["ACEDIVRC"],       # 親の離婚・別居
     "ace_household_incarceration": ["ACEPRISN"],   # 家族の収監
 }
+
+# ネグレクト2カテゴリ（感度分析用。主解析の ACE_CATEGORIES には含めない）
+# 5段階頻度の逆転項目であり、二値化の閾値が他項目より恣意的なため主解析から外している。
+# 例: ACEADSAF を 1-3=ネグレクトとすると該当12.6%、1-2なら6.9%、1のみなら4.3%と3倍動く。
+# 一方でα（内的整合性）は 0.742→0.770 と改善し、追加で失うのは518件のみ。
+# 両定義を事前指定し、フェーズ6で「ACEスコア定義」の感度分析として比較する。
+ACE_CATEGORIES_NEGLECT = {
+    "ace_neglect_emotional": ["ACEADSAF"],   # 情緒的ネグレクト（安全・被保護感）
+    "ace_neglect_physical": ["ACEADNED"],    # 身体的ネグレクト（基本的ニーズ）
+}
+
+# 感度分析用の10カテゴリ（8カテゴリ + ネグレクト2カテゴリ）
+ACE_CATEGORIES_EXTENDED = {**ACE_CATEGORIES, **ACE_CATEGORIES_NEGLECT}
+
+# 感度分析用: 親の離婚カテゴリのみ ACEDIVRC=8→0 版に差し替えた8カテゴリ
+# （カテゴリ数は主解析と同じ8。ACEDIVRC=8 の790件を欠損にせず拾う）
+ACE_SCORE_COLS_DIVRC8 = [
+    c for c in ACE_CATEGORIES if c != "ace_parental_separation"
+] + ["ace_parental_separation_divrc8"]
 
 # === 予防医療行動変数 ===
 PREVENTIVE_CARE_VARS = {
@@ -110,11 +145,11 @@ PREVENTIVE_CARE_VARS = {
 }
 
 # 予防医療行動の二値化（直近1年以内 → 1、それ以外 → 0）
-CHECKUP1_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: None, 8.0: 0, 9.0: None}
-LASTDEN4_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: None, 8.0: 0, 9.0: None}
-FLUSHOT7_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
-HIVTST7_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
-HADMAM_RECODE = {1.0: 1, 2.0: 0, 7.0: None, 9.0: None}
+CHECKUP1_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: np.nan, 8.0: 0, 9.0: np.nan}
+LASTDEN4_RECODE = {1.0: 1, 2.0: 0, 3.0: 0, 4.0: 0, 7.0: np.nan, 8.0: 0, 9.0: np.nan}
+FLUSHOT7_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan}
+HIVTST7_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan}
+HADMAM_RECODE = {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan}
 
 # 予防医療行動リコーディングの一括定義（変数名→リコードマップ）
 PREVENTIVE_CARE_RECODES = {
@@ -123,10 +158,10 @@ PREVENTIVE_CARE_RECODES = {
     "FLUSHOT7": FLUSHOT7_RECODE,
     "HIVTST7": HIVTST7_RECODE,
     "HADMAM": HADMAM_RECODE,
-    "CRVCLPAP": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
-    "CRVCLHPV": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
-    "STOOLDN2": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
-    "PSATEST1": {1.0: 1, 2.0: 0, 7.0: None, 9.0: None},
+    "CRVCLPAP": {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan},
+    "CRVCLHPV": {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan},
+    "STOOLDN2": {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan},
+    "PSATEST1": {1.0: 1, 2.0: 0, 7.0: np.nan, 9.0: np.nan},
 }
 
 # === 人口統計・SES変数 ===
@@ -188,9 +223,21 @@ ALL_RESEARCH_VARS = (
     + SURVEY_VARS
 )
 
-# === 共変量の欠損値コード（リコーディング対象外変数の「わからない/回答拒否」） ===
+# === 共変量の定義 ===
+# 共変量候補の母集合。フェーズ3のDAGで導出する「最小十分調整変数セット」とは別物
+COVARIATE_VARS = (
+    list(DEMOGRAPHIC_VARS.keys())
+    + list(HEALTH_ACCESS_VARS.keys())
+    + list(HEALTH_BEHAVIOR_VARS.keys())
+    + list(HEALTH_STATUS_VARS.keys())
+    + list(SDOH_VARS.keys())
+)
+
+# 共変量の欠損値コード（リコーディング対象外変数の「わからない/回答拒否」）
 COVARIATE_MISSING_CODES = {
+    "_AGEG5YR": [14.0],   # 13=80歳以上が最高齢カテゴリ。14はわからない/回答拒否/欠損
     "_RACE": [9.0],
+    "_RACEGR3": [9.0],
     "MARITAL": [9.0],
     "_EDUCAG": [9.0],
     "_INCOMG1": [9.0],
@@ -212,16 +259,25 @@ COVARIATE_MISSING_CODES = {
     "SDHEMPLY": [7.0, 9.0],
 }
 
+# 欠損値コードを持たない共変量（BLANK=NaNのみ）。登録漏れと区別するため明示する
+COVARIATES_NO_MISSING_CODE = ["_SEX", "_AGE_G", "_BMI5CAT", "_BMI5"]
+
+# 特殊値パターン（88=0日, 77/99=欠損）のため clean_covariates() で個別処理する共変量
+COVARIATES_SPECIAL_HANDLING = ["PHYSHLTH"]
+
 # === 欠損値処理の閾値 ===
 MISSING_THRESHOLD_EXCLUDE = 0.30   # 30%以上欠損 → 変数除外
 MISSING_THRESHOLD_IMPUTE = 0.05    # 5〜30%欠損 → 多重補完
 # 5%未満 → 完全ケース分析
 
 # === ACEスコアの層別化 ===
+# 層別化は CDC MMWR 2023;72(26) 準拠の4群（zero / one / two to three / four or more）。
+# 「4以上」の上限は None = 無制限。8カテゴリ(0-8)でも10カテゴリ(0-10)でも同じ定義で層別できる
 ACE_SCORE_GROUPS = {
-    "なし": (0, 0),
-    "低（1-3）": (1, 3),
-    "高（4以上）": (4, 8),
+    "0": (0, 0),
+    "1": (1, 1),
+    "2-3": (2, 3),
+    "4以上": (4, None),
 }
 
 # === 乱数シード ===

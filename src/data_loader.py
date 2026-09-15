@@ -5,10 +5,9 @@ BRFSS 2024データの読み込み・統合ユーティリティ
 ACEモジュール回答者の研究用データセットを構築する。
 """
 import pandas as pd
-import numpy as np
 from src.config import (
     MAIN_DATA, V1_DATA, V2_DATA,
-    MERGE_KEYS, WEIGHT_MAIN, WEIGHT_V1, WEIGHT_V2,
+    WEIGHT_MAIN, WEIGHT_V1, WEIGHT_V2,
     ACE_ALL_VARS, ALL_RESEARCH_VARS,
     ACE_STATES_MAIN, ACE_STATES_V1, ACE_STATES_V2,
 )
